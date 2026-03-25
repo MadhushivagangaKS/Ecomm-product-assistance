@@ -1,9 +1,9 @@
 import importlib.metadata
 packages = [
-    "ragas",
+    "langchain",
     "langchain-mcp-adapters",
-    "mcp",
-    "ddgs",
+    "langchain_core",
+    "python-dotenv",
     "langchain-openai"
     ]
 for pkg in packages:
