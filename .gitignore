@@ -12,3 +12,4 @@ wheels/
 pyproject.toml
 uv.lock
 logs/
+data/
