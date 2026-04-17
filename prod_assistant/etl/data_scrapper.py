@@ -19,7 +19,7 @@ class FlipkartScraper:
         options = uc.ChromeOptions()
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-blink-features=AutomationControlled")
-        driver = uc.Chrome(options=options,use_subprocess=True,version_main=146)
+        driver = uc.Chrome(options=options,use_subprocess=True)
 
         if not product_url.startswith("http"):
             driver.quit()
@@ -28,18 +28,46 @@ class FlipkartScraper:
         try:
             driver.get(product_url)
             time.sleep(4)
-            try:
-                driver.find_element(By.XPATH, "//button[contains(text(), '✕')]").click()
-                time.sleep(1)
-            except Exception as e:
-                print(f"Error occurred while closing popup: {e}")
+            
+            # Try multiple close button strategies
+            close_attempts = [
+                ("XPath close button", By.XPATH, "//button[contains(text(), '✕')]"),
+                ("XPath close button alt", By.XPATH, "//button[contains(@aria-label, 'close')]"),
+                ("CSS close button", By.CSS_SELECTOR, "button[aria-label*='close' i]"),
+            ]
+            
+            for name, by, selector in close_attempts:
+                try:
+                    driver.find_element(by, selector).click()
+                    time.sleep(1)
+                    break
+                except Exception:
+                    continue
 
+            # Scroll down to load reviews
             for _ in range(4):
                 ActionChains(driver).send_keys(Keys.END).perform()
                 time.sleep(1.5)
 
             soup = BeautifulSoup(driver.page_source, "html.parser")
-            review_blocks = soup.select("div._27M-vq, div.col.EPCmJX, div._6K-7Co")
+            
+            # Try multiple selectors for review blocks (old and new structures)
+            review_selectors = [
+                "div._27M-vq",  # Old selector
+                "div.col.EPCmJX",  # Alternative old
+                "div._6K-7Co",  # Another alternative
+                "div[class*='review']",  # Generic review div
+            ]
+            
+            review_blocks = []
+            for selector in review_selectors:
+                try:
+                    review_blocks = soup.select(selector)
+                    if review_blocks:
+                        break
+                except Exception:
+                    continue
+            
             seen = set()
             reviews = []
 
@@ -50,25 +78,32 @@ class FlipkartScraper:
                     seen.add(text)
                 if len(reviews) >= count:
                     break
-        except Exception:
+                    
+        except Exception as e:
+            print(f"Error occurred while scraping reviews: {e}")
             reviews = []
-
-        driver.quit()
+        finally:
+            driver.quit()
+            
         return " || ".join(reviews) if reviews else "No reviews found"
     
     def scrape_flipkart_products(self, query, max_products=1, review_count=2):
         """Scrape Flipkart products based on a search query.
         """
         options = uc.ChromeOptions()
-        driver = uc.Chrome(options=options,use_subprocess=True,version_main=146)
+        driver = uc.Chrome(options=options,use_subprocess=True)
         search_url = f"https://www.flipkart.com/search?q={query.replace(' ', '+')}"
         driver.get(search_url)
         time.sleep(4)
 
+        # Try to close popup - use multiple selector strategies
         try:
             driver.find_element(By.XPATH, "//button[contains(text(), '✕')]").click()
-        except Exception as e:
-            print(f"Error occurred while closing popup: {e}")
+        except Exception:
+            try:
+                driver.find_element(By.XPATH, "//button[contains(@aria-label, 'close')]").click()
+            except Exception:
+                pass  # Popup may not exist, continue
 
         time.sleep(2)
         products = []
@@ -76,18 +111,49 @@ class FlipkartScraper:
         items = driver.find_elements(By.CSS_SELECTOR, "div[data-id]")[:max_products]
         for item in items:
             try:
-                title = item.find_element(By.CSS_SELECTOR, "div.KzDlHZ").text.strip()
-                price = item.find_element(By.CSS_SELECTOR, "div.Nx9bqj").text.strip()
-                rating = item.find_element(By.CSS_SELECTOR, "div.XQDdHH").text.strip()
-                reviews_text = item.find_element(By.CSS_SELECTOR, "span.Wphh3N").text.strip()
-                match = re.search(r"\d+(,\d+)?(?=\s+Reviews)", reviews_text)
-                total_reviews = match.group(0) if match else "N/A"
-
+                # Extract title
+                title = item.find_element(By.CSS_SELECTOR, "div.RG5Slk").text.strip()
+                
+                # Extract price
+                price = item.find_element(By.CSS_SELECTOR, "div.oFEPlD").text.strip()
+                
+                # Extract rating
+                rating = item.find_element(By.CSS_SELECTOR, "div.MKiFS6").text.strip()
+                
+                # Extract reviews count - use multiple selector fallbacks
+                total_reviews = "N/A"
+                try:
+                    # First try: span.PvbNMB (new structure from 2025/2026)
+                    reviews_container = item.find_element(By.CSS_SELECTOR, "span.PvbNMB")
+                    reviews_text = reviews_container.text.strip()
+                    match = re.search(r"(\d+(?:,\d+)*)\s+Reviews", reviews_text)
+                    if match:
+                        total_reviews = match.group(1)
+                except Exception:
+                    try:
+                        # Fallback: try div.vQDoqR (old structure)
+                        reviews_container = item.find_element(By.CSS_SELECTOR, "div.vQDoqR")
+                        reviews_text = reviews_container.text.strip()
+                        match = re.search(r"(\d+(?:,\d+)*)\s+Reviews", reviews_text)
+                        if match:
+                            total_reviews = match.group(1)
+                    except Exception:
+                        # Last resort: search for any text containing "Reviews"
+                        try:
+                            all_text = item.text
+                            match = re.search(r"(\d+(?:,\d+)*)\s+Reviews", all_text)
+                            if match:
+                                total_reviews = match.group(1)
+                        except Exception:
+                            pass
+                
+                # Extract product ID and link
                 link_el = item.find_element(By.CSS_SELECTOR, "a[href*='/p/']")
                 href = link_el.get_attribute("href")
                 product_link = href if href.startswith("http") else "https://www.flipkart.com" + href
                 match = re.findall(r"/p/(itm[0-9A-Za-z]+)", href)
                 product_id = match[0] if match else "N/A"
+                
             except Exception as e:
                 print(f"Error occurred while processing item: {e}")
                 continue

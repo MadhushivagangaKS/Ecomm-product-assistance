@@ -1,9 +1,9 @@
 astra_db:
-  collection_name: "ecommercedata"
+  collection_name: "ecomm"
 
 embedding_model:
   provider: "google"
-  model_name: "models/text-embedding-004"
+  model_name: "gemini-embedding-001"
 
 retriever:
   top_k: 4
@@ -11,7 +11,7 @@ retriever:
 llm:
   groq:
     provider: "groq"
-    model_name: "deepseek-r1-distill-llama-70b"
+    model_name: "qwen/qwen3-32b"
     temperature: 0
     max_output_tokens: 2048
 
