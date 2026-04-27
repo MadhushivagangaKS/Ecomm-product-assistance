@@ -13,3 +13,21 @@ pyproject.toml
 uv.lock
 logs/
 data/
+
+# IDE/editor settings
+.vscode/
+.idea/
+
+# Environment files
+.env
+*.env
+
+# Logs
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+archive/
+
+.vscode/
