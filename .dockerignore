@@ -35,3 +35,7 @@ build/
 dist/
 *.egg-info/
 .eggs/
+data/
+logs/
+notebook/
+inspect_flipkart.py
