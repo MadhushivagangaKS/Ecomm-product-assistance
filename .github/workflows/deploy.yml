@@ -91,13 +91,19 @@ jobs:
       # Create/Update Kubernetes Secret (for API keys)
       - name: Create Kubernetes secret for API keys
         run: |
-          kubectl create secret generic product-assistant-secrets \
-            --from-literal=OPENAI_API_KEY=${{ secrets.GROQ_API_KEY }} \
-            --from-literal=GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} \
-            --from-literal=ASTRA_DB_API_ENDPOINT=${{ secrets.ASTRA_DB_API_ENDPOINT }} \
-            --from-literal=ASTRA_DB_APPLICATION_TOKEN=${{ secrets.ASTRA_DB_APPLICATION_TOKEN }} \
-            --from-literal=ASTRA_DB_KEYSPACE=${{ secrets.ASTRA_DB_KEYSPACE }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: product-assistant-secrets
+          type: Opaque
+          stringData:
+            OPENAI_API_KEY: ${{ secrets.GROQ_API_KEY }}
+            GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+            ASTRA_DB_API_ENDPOINT: ${{ secrets.ASTRA_DB_API_ENDPOINT }}
+            ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
+            ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
+          EOF
 
       # Deploy manifests
       - name: Apply Kubernetes manifests
