@@ -130,6 +130,7 @@ Resources:
   ### --- EKS Cluster ---
   EKSCluster:
     Type: AWS::EKS::Cluster
+    DependsOn: AttachGateway
     Properties:
       Name: !Ref ClusterName
       RoleArn: !GetAtt EKSClusterRole.Arn
@@ -159,7 +160,9 @@ Resources:
     ### --- EKS NodeGroup ---
   NodeGroup:
     Type: AWS::EKS::Nodegroup
-    DependsOn: EKSCluster   # ensures cluster is ready
+    DependsOn: 
+      - EKSCluster # ensures cluster is ready
+      - PublicRoute   
     Properties:
       ClusterName: !Ref ClusterName
       NodeRole: !GetAtt NodeGroupRole.Arn
