@@ -105,6 +105,15 @@ jobs:
             ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
           EOF
 
+      # Create ECR ImagePullSecret for private registry
+      - name: Create ECR ImagePullSecret
+        run: |
+          kubectl create secret docker-registry ecr-registry-secret \
+            --docker-server=${{ secrets.ECR_REGISTRY }} \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       # Deploy manifests
       - name: Apply Kubernetes manifests
         run: |

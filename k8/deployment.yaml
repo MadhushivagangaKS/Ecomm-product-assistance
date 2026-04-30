@@ -14,6 +14,8 @@ spec:
       labels:
         app: product-assistant
     spec:
+      imagePullSecrets:
+      - name: ecr-registry-secret
       containers:
       - name: product-assistant
         image: 459497895986.dkr.ecr.us-west-1.amazonaws.com/product-assistant:latest
