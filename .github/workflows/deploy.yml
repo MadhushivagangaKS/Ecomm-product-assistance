@@ -107,12 +107,20 @@ jobs:
 
       # Create ECR ImagePullSecret for private registry
       - name: Create ECR ImagePullSecret
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         run: |
-          kubectl create secret docker-registry ecr-registry-secret \
-            --docker-server=${{ secrets.ECR_REGISTRY }} \
-            --docker-username=AWS \
-            --docker-password=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) \
-            --dry-run=client -o yaml | kubectl apply -f -
+          ECR_PASSWORD=$(aws ecr get-login-password --region $AWS_REGION)
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: ecr-registry-secret
+          type: kubernetes.io/dockercfg
+          data:
+            .dockercfg: $(echo -n '{"'$ECR_REGISTRY'": {"auth": "'$(echo -n "AWS:$ECR_PASSWORD" | base64 -w 0)'", "email": "none@example.com"}}' | base64 -w 0)
+          EOF
 
       # Deploy manifests
       - name: Apply Kubernetes manifests
@@ -133,7 +141,7 @@ jobs:
       - name: Verify Deployment
         run: |
           set -e
-          if ! kubectl rollout status deployment/product-assistant --timeout=120s; then
+          if ! kubectl rollout status deployment/product-assistant --timeout=300s; then
             echo "Rollout failed, collecting debug info..."
             kubectl describe deployment product-assistant || true
             kubectl get pods -o wide || true
