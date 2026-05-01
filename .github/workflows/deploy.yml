@@ -111,17 +111,18 @@ jobs:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
+          # Delete existing secret if it has the wrong type
+          kubectl delete secret ecr-registry-secret --ignore-not-found=true
+          # Wait a moment for deletion to complete
+          sleep 1
+          # Create new secret with docker-registry type
           ECR_PASSWORD=$(aws ecr get-login-password --region $AWS_REGION)
-          DOCKER_AUTH=$(echo -n "AWS:$ECR_PASSWORD" | base64)
-          kubectl apply -f - <<EOF
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: ecr-registry-secret
-          type: kubernetes.io/dockercfg
-          data:
-            .dockercfg: $(echo -n "{\"$ECR_REGISTRY\":{\"auth\":\"$DOCKER_AUTH\"}}" | base64 -w 0)
-          EOF
+          kubectl create secret docker-registry ecr-registry-secret \
+            --docker-server=$ECR_REGISTRY \
+            --docker-username=AWS \
+            --docker-password=$ECR_PASSWORD \
+            --docker-email=aws@example.com \
+            --save-config
 
       # Deploy manifests
       - name: Apply Kubernetes manifests
