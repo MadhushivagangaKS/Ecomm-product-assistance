@@ -31,3 +31,7 @@ async def chat(msg: str = Form(...)):
     rag_agent = AgenticRAG()
     answer = rag_agent.run(msg)
     return answer
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
