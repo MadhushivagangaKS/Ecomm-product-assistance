@@ -125,18 +125,32 @@ jobs:
             --save-config
 
       # Deploy manifests
-      - name: Apply Kubernetes manifests
-        run: |
-          kubectl apply -f k8/deployment.yaml
-          kubectl apply -f k8/service.yaml
+      # - name: Apply Kubernetes manifests
+      #   run: |
+      #     kubectl apply -f k8/deployment.yaml
+      #     kubectl apply -f k8/service.yaml
 
-      - name: Patch deployment with new image tag
+      # - name: Patch deployment with new image tag
+      #   env:
+      #     REGISTRY: ${{ secrets.ECR_REGISTRY }}
+      #     REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+      #     IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+      #   run: |
+      #     kubectl set image deployment/product-assistant product-assistant=$REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      # Update manifest and deploy in one step
+      - name: Deploy manifests with new image
         env:
           REGISTRY: ${{ secrets.ECR_REGISTRY }}
           REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
         run: |
-          kubectl set image deployment/product-assistant product-assistant=$REGISTRY/$REPOSITORY:$IMAGE_TAG
+          # Replace whatever dummy image is in the yaml with the real, newly built ECR image
+          sed -i "s|image: .*|image: $REGISTRY/$REPOSITORY:$IMAGE_TAG|g" k8/deployment.yaml
+          
+          # Apply the fully updated manifests
+          kubectl apply -f k8/deployment.yaml
+          kubectl apply -f k8/service.yaml
 
 
       # Verify rollout
