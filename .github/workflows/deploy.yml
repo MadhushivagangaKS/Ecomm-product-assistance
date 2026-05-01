@@ -107,20 +107,13 @@ jobs:
 
       # Create ECR ImagePullSecret for private registry
       - name: Create ECR ImagePullSecret
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
         run: |
-          ECR_PASSWORD=$(aws ecr get-login-password --region $AWS_REGION)
-          kubectl apply -f - <<EOF
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: ecr-registry-secret
-          type: kubernetes.io/dockercfg
-          data:
-            .dockercfg: $(echo -n '{"'$ECR_REGISTRY'": {"auth": "'$(echo -n "AWS:$ECR_PASSWORD" | base64 -w 0)'", "email": "none@example.com"}}' | base64 -w 0)
-          EOF
+          kubectl delete secret ecr-registry-secret --ignore-not-found=true
+          kubectl create secret docker-registry ecr-registry-secret \
+            --docker-server=${{ secrets.ECR_REGISTRY }} \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password --region ${{ secrets.AWS_REGION }}) \
+            --docker-email=none@example.com
 
       # Deploy manifests
       - name: Apply Kubernetes manifests
